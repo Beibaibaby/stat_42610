@@ -87,6 +87,8 @@ end
 #
 # voltages in mV, current in uA/cm^2, conductance in mS/cm^2, time is msec
 #
+
+
 function HH(vstart, iapp, T)
     # Initial Values for m, n, and h are set to rest state
     v = vstart
@@ -120,5 +122,50 @@ function HH(vstart, iapp, T)
 end
 
 ############################################################## 
-HH(-70, 6, 10)
+#HH(-70, 6, 10)
+##############################################################
+#write a motified function based on HH named HH_planar_reduced by fixxng the value of m to be alpham(v)/(alpham(v) + betam(v)) and n to be 0.8-n
+function fxn_r!(du, u, p, t)
+    u[1] = alpham(u[4]) / (alpham(u[4]) + betam(u[4]))
+    du[2] = alphan(u[4]) * (1 - u[2]) - betan(u[4]) * u[2]
+    u[3] = 0.8 - u[2]
+    gNa = gNabar * (u[1]^3) * u[3]
+    gK = gKbar * (u[2]^4)
 
+    iapp = p # Unpack parameters (for readability)
+    du[4] = -(1 / C) * (gNa * (u[4] - ENa) + gK * (u[4] - EK) + gLbar * (u[4] - EL)) + iapp / C
+end
+
+function HH_planar_reduced(vstart, iapp, T)
+   # Initial Values for m, n, and h are set to rest state
+   v = vstart
+   m = alpham(v)/(alpham(v) + betam(v))
+   n = alphan(v)/(alphan(v) + betan(v))
+   h = alphah(v)/(alphah(v) + betah(v))
+
+   # Set initial conditions for ODE solver
+   u0 = [m, n, h, v]
+   tspan = (0.0, T)
+   params = iapp
+
+   # Solve ODE
+   dt = 0.01
+   ode_prob = ODEProblem(fxn_r!, u0, tspan, params)
+   sol = solve(ode_prob, alg_hints = [:stiff], saveat = dt, abstol = 1e-8, reltol = 1e-6)
+
+   # sol.u returns as an array of arrays (# time steps, # state variables)
+   # Unpack each state variable into array for plotting
+   u = zeros(length(sol.u), length(sol.u[1]))
+   for i = 1:length(sol.u)
+       u[i,:] = sol.u[i]
+   end
+
+   # Plot and save figure
+   plot_obj = plot(plot(sol.t, u[:,4], xlabel = "time", ylabel = "Voltage"),
+                   plot(sol.t, u[:,1:3], label = ["m" "n" "h"], xlabel = "time"), layout=(3, 1), legend = false)
+   filename = "HH_reduced.png"
+   savefig(plot_obj, filename)
+end
+
+HH_planar_reduced(-70, 6, 10)
+HH(-70, 6, 10)
