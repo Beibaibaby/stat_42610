@@ -14,4 +14,12 @@ using Pkg
 #Pkg.add("FileIO")
 #Pkg.add("DSP")
 #Pkg.add("Optim")
-Pkg.add("DifferentialEquations")
+#Pkg.add("DifferentialEquations")
+#
+#Pkg.add("Conda") 
+#using Conda
+#Pkg.add("SymPy")
+#Conda.update()
+using Conda
+Conda.add("sympy")
+
