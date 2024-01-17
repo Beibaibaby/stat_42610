@@ -1,4 +1,43 @@
 import sympy as sp
+import sympy as sp
+
+# Define the symbols
+V, n, beta_m, beta_n, gamma_m, gamma_n, phi, C, gNa, gK, gL, ENa, EK, EL, I = sp.symbols('V n beta_m beta_n gamma_m gamma_n phi C gNa gK gL ENa EK EL I', real=True)
+
+# Define the functions
+def x_inf(V, beta_x, gamma_x):
+    return 0.5 * (1 + sp.tanh((V - beta_x) / gamma_x))
+
+def tau_n(V, beta_x, gamma_x, phi):
+    return 1.0 / (phi * sp.cosh((V - beta_x) / gamma_x))
+
+# Compute derivatives
+def dx_inf_dV(V, beta_x, gamma_x):
+    return sp.diff(x_inf(V, beta_x, gamma_x), V)
+
+def dtau_n_dV(V, beta_x, gamma_x, phi):
+    return sp.diff(tau_n(V, beta_x, gamma_x, phi), V)
+
+# Define m_inf and n_inf
+m_inf = x_inf(V, beta_m, gamma_m)
+n_inf = x_inf(V, beta_n, gamma_n)
+
+# Define F and G functions from the neuron model
+F = (1 / C) * (-gNa * m_inf * (V - ENa) - gK * n * (V - EK) - gL * (V - EL) + I)
+G = (n_inf - n) / tau_n(V, beta_n, gamma_n, phi)
+
+# Partial derivatives for the Jacobian
+dF_dV = sp.diff(F, V).subs(m_inf, x_inf(V, beta_m, gamma_m)).subs(dx_inf_dV(V, beta_m, gamma_m), sp.diff(x_inf(V, beta_m, gamma_m), V))
+dF_dn = sp.diff(F, n)
+dG_dV = sp.diff(G, V).subs({n_inf: x_inf(V, beta_n, gamma_n), tau_n(V, beta_n, gamma_n, phi): 1.0 / (phi * sp.cosh((V - beta_n) / gamma_n))})
+dG_dn = sp.diff(G, n)
+
+# Jacobian matrix
+J = sp.Matrix([[dF_dV, dF_dn], [dG_dV, dG_dn]])
+
+# Print the Jacobian matrix
+print("Jacobian Matrix J:")
+sp.pprint(J)
 
 # Define the symbols
 V, n = sp.symbols('V n', real=True)
@@ -46,9 +85,6 @@ dG_dn = sp.diff(G, n)
 # Jacobian matrix
 J = sp.Matrix([[dF_dV, dF_dn], [dG_dV, dG_dn]])
 
-# Print the Jacobian matrix
-print("Jacobian Matrix J:")
-sp.pprint(J)
 
 V_val = -42.00440593572987   # Example value for V
 n_val = 0.0002246187963222547 # Example value for n
@@ -64,6 +100,15 @@ sp.pprint(eigenvalues)
 
 
 #######################################
+
+
+
+
+
+
+
+
+
 
 
 
@@ -112,9 +157,6 @@ dG_dn = sp.diff(G, n)
 # Jacobian matrix
 J = sp.Matrix([[dF_dV, dF_dn], [dG_dV, dG_dn]])
 
-# Print the Jacobian matrix
-print("Jacobian Matrix J:")
-sp.pprint(J)
 
 V_val = -35.795555450866665   # Example value for V
 n_val = 0.010362849744594825 # Example value for n
