@@ -121,6 +121,28 @@ function HH(vstart, iapp, T)
 
 end
 
+
+function HH_sim(vstart, iapp, T)
+    # Initial Values for m, n, and h are set to rest state
+    v = vstart
+    m = alpham(v)/(alpham(v) + betam(v))
+    n = alphan(v)/(alphan(v) + betan(v))
+    h = alphah(v)/(alphah(v) + betah(v))
+
+    # Set initial conditions for ODE solver
+    u0 = [m, n, h, v]
+    tspan = (0.0, T)
+    params = iapp
+
+    # Solve ODE
+    dt = 0.01
+    ode_prob = ODEProblem(fxn!, u0, tspan, params)
+    sol = solve(ode_prob, alg_hints = [:stiff], saveat = dt, abstol = 1e-8, reltol = 1e-6)
+
+    return sol
+end
+
+
 ############################################################## 
 #HH(-70, 6, 10)
 ##############################################################
@@ -167,5 +189,114 @@ function HH_planar_reduced(vstart, iapp, T)
    savefig(plot_obj, filename)
 end
 
-HH_planar_reduced(-70, 6, 10)
-HH(-70, 6, 10)
+#HH_planar_reduced(-70, 6, 10)
+#HH(-70, 6, 10)
+
+# Modified Hodgkin-Huxley model function for the planar reduced model
+function HH_planar_reduced_plot(vstart, iapp, T)
+    # Initial Values for m, n, and h are set to rest state
+    v = vstart
+    m = alpham(v)/(alpham(v) + betam(v))
+    n = alphan(v)/(alphan(v) + betan(v))
+    h = alphah(v)/(alphah(v) + betah(v))
+ 
+    # Set initial conditions for ODE solver
+    u0 = [m, n, h, v]
+    tspan = (0.0, T)
+    params = iapp
+ 
+    # Solve ODE
+    dt = 0.01
+    ode_prob = ODEProblem(fxn_r!, u0, tspan, params)
+    sol = solve(ode_prob, alg_hints = [:stiff], saveat = dt, abstol = 1e-8, reltol = 1e-6)
+ 
+ 
+    return sol
+ end
+
+# Function to plot and save phase trajectories over time
+function plot_and_save_phase_trajectory(vstart, T, filename)
+    sol6 = HH_sim(vstart, 6, T)
+    sol7 = HH_sim(vstart, 7, T)
+
+    p1 = plot(sol6.t, [sol6.u[i][4] for i in 1:length(sol6.t)], label = "V(t) for I = 6", xlabel = "Time (ms)", ylabel = "Voltage (mV)")
+    plot!(p1, sol7.t, [sol7.u[i][4] for i in 1:length(sol7.t)], label = "V(t) for I = 7")
+
+    p2 = plot(sol6.t, [sol6.u[i][2] for i in 1:length(sol6.t)], label = "n(t) for I = 6", xlabel = "Time (ms)", ylabel = "Gating variable n")
+    plot!(p2, sol7.t, [sol7.u[i][2] for i in 1:length(sol7.t)], label = "n(t) for I = 7")
+
+    plot_obj = plot(p1, p2, layout = (2, 1), legend = true)
+    savefig(plot_obj, filename)
+end
+
+# Function to plot and save the phase-space trajectory
+function plot_and_save_phase_space_trajectory(vstart, T, filename)
+    sol6 = HH_planar_reduced_plot(vstart, 6, T)
+    sol7 = HH_planar_reduced_plot(vstart, 7, T)
+
+    plot([sol6.u[i][4] for i in 1:length(sol6.t)], [sol6.u[i][2] for i in 1:length(sol6.t)], label = "I = 6", xlabel = "Voltage V(t)", ylabel = "Gating variable n(t)")
+    plot!([sol7.u[i][4] for i in 1:length(sol7.t)], [sol7.u[i][2] for i in 1:length(sol7.t)], label = "I = 7")
+    savefig(filename)
+end
+
+# Plotting and saving phase-space trajectories
+plot_and_save_phase_trajectory(-70, 200, "phase_trajectory_ori_over_time.png")
+
+# Plotting and saving phase trajectories
+#plot_and_save_phase_trajectory(-70, 200, "phase_trajectory_over_time.png")
+
+# search the boundary I of the repetitive spiking, we need to search iapp from 6 to 7 (step size 0.01) to find the boundary
+# the sign of repetitive spiking could be determined by the value of V at 150 ms which is u[1500][4]
+function search_boundary_reduced(vstart, T)
+    iapp = 6.0  # Starting value for the input current
+    iapp_step = 0.001  # Increment step for the input current
+
+    while iapp < 7.0  # Upper limit for the input current
+        sol = HH_planar_reduced_plot(vstart, iapp, T)
+
+        # Check if the voltage goes above -50 mV more than three times
+        voltage_spikes = sum([sol.u[i][4] > 0 for i in 5000:length(sol.t)]) 
+        if voltage_spikes > 0
+            println("The boundary current for repetitive spiking is $iapp µA/cm² (reduced model)")
+            break
+        end
+
+        iapp += iapp_step  # Increment the input current
+    end
+
+    # If the loop completes without finding a boundary, indicate so
+    if iapp >= 7.0
+        println("No boundary found within the specified current range.")
+    end
+end
+
+
+
+
+function search_boundary(vstart, T)
+    iapp = 6.0  # Starting value for the input current
+    iapp_step = 0.001  # Increment step for the input current
+
+    while iapp < 7.0  # Upper limit for the input current
+        sol = HH_sim(vstart, iapp, T)
+
+        # Check if the voltage goes above -50 mV more than three times
+        voltage_spikes = sum([sol.u[i][4] > 0 for i in 5000:length(sol.t)]) 
+        if voltage_spikes > 0
+            println("The boundary current for repetitive spiking is $iapp µA/cm²")
+            break
+        end
+
+        iapp += iapp_step  # Increment the input current
+    end
+
+    # If the loop completes without finding a boundary, indicate so
+    if iapp >= 7.0
+        println("No boundary found within the specified current range.")
+    end
+end
+
+
+
+search_boundary_reduced(-70, 200)
+search_boundary(-70, 200)
