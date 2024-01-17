@@ -14,6 +14,23 @@ gamma_m = 18.0
 gamma_n = 10.0
 phi = 0.15
 
+function count_spikes(voltage_trace, threshold, time_points, transient)
+    num_spikes = 0
+    is_above_threshold = false
+
+    for (t, V) in zip(time_points, voltage_trace)
+        if t > transient
+            if V > threshold && !is_above_threshold
+                num_spikes += 1
+                is_above_threshold = true
+            elseif V < threshold
+                is_above_threshold = false
+            end
+        end
+    end
+
+    return num_spikes
+end
 
 # Steady-state activation functions and time scale function
 x_inf(V, beta_x, gamma_x) = 0.5 * (1.0 + tanh((V - beta_x) / gamma_x))
@@ -41,22 +58,26 @@ function simulate_neuron(beta_n, I0, I1, f, T, dt)
     p = [I0, I1, f, beta_n]
 
     prob = ODEProblem(neuron_model, u0, tspan, p)
-    #sol = solve(prob, Tsit5(), dt=dt) 
+    #sol = solve(prob, Euler(), dt=dt)
     sol = solve(prob, alg_hints = [:stiff], saveat = dt, abstol = 1e-8, reltol = 1e-6)
-
+    #sol = solve(prob, Tsit5(), dt=dt) 
     return sol
 end
 
 # Class I excitability parameters
 beta_n_class_I = 0.0
 I0_class_I = 36.70
+
+
 T = 400.0  # Total simulation time
 dt = 0.005  # Time step
 transient = 200.0  # Time to exclude for transient dynamics
 
 # Parameter sweep range for I1 and f
-I1_range = 0.4:0.02:2.0
-f_range = 0.04:0.005:0.17
+#I1_range = 0.4:0.01:2.0
+#f_range = 0.04:0.002:0.17
+I1_range = 0.4:0.01:2.0
+f_range = 0.04:0.002:0.17
 
 # Initialize result matrix
 results_Class_I = zeros(length(I1_range), length(f_range))
@@ -68,12 +89,14 @@ total_iterations = length(I1_range) * length(f_range)
 p = Progress(total_iterations, 1, "Computing... ", 50)
 
 # Perform simulations for Class I
+
+
 for (i, I1) in enumerate(I1_range)
     for (j, f) in enumerate(f_range)
         sol = simulate_neuron(beta_n_class_I, I0_class_I, I1, f, T, dt)
         # Exclude transient dynamics and check for spiking
-        spiking = any([V > -40 for (t, V) in zip(sol.t, sol[1, :]) if t > transient])
-        results_Class_I[i, j] = spiking ? 1 : 0
+        num_spikes = count_spikes(sol[1, :], -40, sol.t, transient)
+        results_Class_I[i, j] = num_spikes*5
 
         # Update the progress bar
         next!(p)
@@ -103,6 +126,8 @@ savefig(heatmap_plot, "Class_I_heatmap.png")
 # Class II excitability parameters
 beta_n_class_II = -13.0
 I0_class_II = 45.75
+# Initialize result matrix
+results_Class_II = zeros(length(I1_range), length(f_range))
 
 p = Progress(total_iterations, 1, "Computing... ", 50)
 
@@ -111,8 +136,8 @@ for (i, I1) in enumerate(I1_range)
     for (j, f) in enumerate(f_range)
         sol = simulate_neuron(beta_n_class_II, I0_class_II, I1, f, T, dt)
         # Exclude transient dynamics and check for spiking
-        spiking = any([V > -40 for (t, V) in zip(sol.t, sol[1, :]) if t > transient])
-        results_Class_II[i, j] = spiking ? 1 : 0
+        num_spikes = count_spikes(sol[1, :], -40, sol.t, transient)
+        results_Class_II[i, j] = num_spikes*5
 
         # Update the progress bar
         next!(p)
