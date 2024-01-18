@@ -114,8 +114,8 @@ function HH(vstart, iapp, T)
     end
 
     # Plot and save figure
-    plot_obj = plot(plot(sol.t, u[:,4], xlabel = "time", ylabel = "Voltage"),
-                    plot(sol.t, u[:,1:3], label = ["m" "n" "h"], xlabel = "time"), layout=(3, 1), legend = false)
+    plot_obj = plot(plot(sol.t, u[:,4], xlabel = "time", ylabel = "Voltage",label = "V(t)"),
+                    plot(sol.t, u[:,1:3], label = ["m" "n" "h"], xlabel = "time"), layout=(3, 1), legend = true)
     filename = "HH.png"
     savefig(plot_obj, filename)
 
@@ -183,14 +183,14 @@ function HH_planar_reduced(vstart, iapp, T)
    end
 
    # Plot and save figure
-   plot_obj = plot(plot(sol.t, u[:,4], xlabel = "time", ylabel = "Voltage"),
-                   plot(sol.t, u[:,1:3], label = ["m" "n" "h"], xlabel = "time"), layout=(3, 1), legend = false)
+   plot_obj = plot(plot(sol.t, u[:,4], xlabel = "time", ylabel = "Voltage",label = "V(t)"),
+                   plot(sol.t, u[:,1:3], label = ["m" "n" "h"], xlabel = "time"), layout=(3, 1), legend = true)
    filename = "HH_reduced.png"
    savefig(plot_obj, filename)
 end
 
-#HH_planar_reduced(-70, 6, 10)
-#HH(-70, 6, 10)
+HH_planar_reduced(-70, 6, 10)
+HH(-70, 6, 10)
 
 # Modified Hodgkin-Huxley model function for the planar reduced model
 function HH_planar_reduced_plot(vstart, iapp, T)
@@ -245,9 +245,25 @@ plot_and_save_phase_trajectory(-70, 200, "phase_trajectory_ori_over_time.png")
 # Plotting and saving phase trajectories
 #plot_and_save_phase_trajectory(-70, 200, "phase_trajectory_over_time.png")
 
+function count_spikes(voltage_trace, threshold, transient)
+    num_spikes = 0
+    is_above_threshold = false
+
+    for V in voltage_trace
+        if V > threshold && !is_above_threshold
+            num_spikes += 1
+            is_above_threshold = true
+        elseif V < threshold
+            is_above_threshold = false
+        end
+    end
+
+    return num_spikes
+end
+
 # search the boundary I of the repetitive spiking, we need to search iapp from 6 to 7 (step size 0.01) to find the boundary
 # the sign of repetitive spiking could be determined by the value of V at 150 ms which is u[1500][4]
-function search_boundary_reduced(vstart, T)
+function search_boundary_reduced(vstart, T, threshold=-50.0, transient=500)
     iapp = 6.0  # Starting value for the input current
     iapp_step = 0.001  # Increment step for the input current
 
@@ -255,9 +271,9 @@ function search_boundary_reduced(vstart, T)
         sol = HH_planar_reduced_plot(vstart, iapp, T)
 
         # Check if the voltage goes above -50 mV more than three times
-        voltage_spikes = sum([sol.u[i][4] > 0 for i in 5000:length(sol.t)]) 
-        if voltage_spikes > 0
-            println("The boundary current for repetitive spiking is $iapp µA/cm² (reduced model)")
+        num_spikes = count_spikes([sol.u[i][4] for i in transient:length(sol.t)], threshold, transient)
+        if num_spikes > 2
+            println("The boundary current for repetitive spiking is $iapp µA/cm²")
             break
         end
 
@@ -272,17 +288,16 @@ end
 
 
 
-
-function search_boundary(vstart, T)
+function search_boundary(vstart, T, threshold=-50.0, transient=500)
     iapp = 6.0  # Starting value for the input current
     iapp_step = 0.001  # Increment step for the input current
 
     while iapp < 7.0  # Upper limit for the input current
         sol = HH_sim(vstart, iapp, T)
 
-        # Check if the voltage goes above -50 mV more than three times
-        voltage_spikes = sum([sol.u[i][4] > 0 for i in 5000:length(sol.t)]) 
-        if voltage_spikes > 0
+        # Check for spikes using threshold-based detection
+        num_spikes = count_spikes([sol.u[i][4] for i in transient:length(sol.t)], threshold, transient)
+        if num_spikes > 2
             println("The boundary current for repetitive spiking is $iapp µA/cm²")
             break
         end
@@ -300,3 +315,6 @@ end
 
 search_boundary_reduced(-70, 200)
 search_boundary(-70, 200)
+
+HH_planar_reduced(-70, 6.15, 50)
+HH(-70, 6.15, 50)

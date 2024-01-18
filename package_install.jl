@@ -20,6 +20,7 @@ using Pkg
 #using Conda
 #Pkg.add("SymPy")
 #Conda.update()
-using Conda
-Conda.add("sympy")
+#using Conda
+#Conda.add("sympy")
+Pkg.add("SpecialFunctions")
 
