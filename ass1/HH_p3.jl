@@ -64,6 +64,8 @@ function simulate_neuron(beta_n, I0, I1, f, T, dt)
     return sol
 end
 
+
+
 # Class I excitability parameters
 beta_n_class_I = 0.0
 I0_class_I = 36.70
@@ -72,6 +74,13 @@ I0_class_I = 36.70
 T = 400.0  # Total simulation time
 dt = 0.005  # Time step
 transient = 200.0  # Time to exclude for transient dynamics
+
+
+#soll=simulate_neuron(beta_n_class_I, I0_class_I, 1.5, f, T, dt)
+
+#pp=plot(soll.t, soll[1,:], label="Membrane Potential V", xlabel="Time (ms)", ylabel="Voltage (mV)")
+#savefig(pp,"neuron_voltage_plot.png")  
+
 
 # Parameter sweep range for I1 and f
 #I1_range = 0.4:0.01:2.0
