@@ -80,4 +80,4 @@ p = plot(τ_rel_array, cv_means, xlabel="τ_rel (ms)", ylabel="Coefficient of Va
          title="Average CV as a Function of τ_rel", legend=false, marker=:circle,left_margin=20mm,bottom_margin=20mm,size=(800,600))
 
 # Save the plot
-savefig(p, "CV_vs_tau_rel_average.png")
+savefig(p, "p3_d.png")

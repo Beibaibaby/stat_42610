@@ -41,7 +41,7 @@ function estimate_rho(spike_times, τ_abs, τ_rel, λ)
     ρ_analytical_vals = [rho_analytical(τ, λ/1000, τ_abs, τ_rel) for τ in τ_vals]
 
     # Plot numerical estimation as histogram
-    histogram(isi, bins=100, normed=true, alpha=0.5, label="Numerical τ_abs=$τ_abs, τ_rel=$τ_rel",left_margin=20mm,bottom_margin=20mm,size=(800,600))
+    histogram(isi, bins=500, normed=true, alpha=0.5, label="Numerical τ_abs=$τ_abs, τ_rel=$τ_rel",left_margin=20mm,bottom_margin=20mm,size=(800,600))
 
     # Overlay analytical solution
     plot!(τ_vals, ρ_analytical_vals, label="Analytical τ_abs=$τ_abs, τ_rel=$τ_rel", lw=2)
@@ -77,34 +77,3 @@ ylabel!("Density ρ(τ)")
 title!("Inter-spike Interval Density Function ρ(τ)")
 savefig("p3_a2.png")
 
-
-###################ii#########################################ii######################
-
-# Function to compute CV from spike times
-function compute_cv(spike_times)
-    isi = diff(spike_times)
-    return std(isi) / mean(isi)
-end
-
-# Initialize parameters
-λ = 30.0  # Hz
-τ_abs = 3.0  # ms, fixed absolute refractory period
-τ_rel_values = 0:1:20  # ms, range of relative refractory periods
-
-# Arrays to store results
-τ_rel_array = []
-cv_array = []
-
-for τ_rel in τ_rel_values
-    spike_times = simulate_spike_times(λ, τ_abs, τ_rel, 1e5, 0.1)
-    cv = compute_cv(spike_times)
-    push!(τ_rel_array, τ_rel)
-    push!(cv_array, cv)
-end
-
-# Plotting CV as a function of τ_rel
-p = plot(τ_rel_array, cv_array, xlabel="τ_rel (ms)", ylabel="Coefficient of Variation (CV)",
-         title="CV as a Function of τ_rel", legend=false, marker=:circle)
-
-# Save the plot
-savefig(p, "CV_vs_tau_rel.png")

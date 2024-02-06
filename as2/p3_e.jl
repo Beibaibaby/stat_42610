@@ -56,28 +56,30 @@ end
 
 # Initialize parameters
 λ = 30.0  # Hz
-τ_abs = 3.0  # ms, fixed absolute refractory period
-τ_rel_values = 0:1:20  # ms, range of relative refractory periods
+τ_rel = 3.0  # ms, fixed absolute refractory period
+τ_abs_values = 0:1:20  # ms, range of relative refractory periods
 num_simulations = 10  # Number of simulations per τ_rel value
 
 # Arrays to store results
-τ_rel_array = []
+τ_abs_array = []
 cv_means = []
 
-for τ_rel in τ_rel_values
+for τ_abs in τ_abs_values
     cvs = Float64[]  # To store CVs for each simulation
     for sim in 1:num_simulations
         spike_times = simulate_spike_times(λ, τ_abs, τ_rel, 1e5,0.1)
         cv = compute_cv(spike_times)
         push!(cvs, cv)
     end
-    push!(τ_rel_array, τ_rel)
+    push!(τ_abs_array, τ_abs)
     push!(cv_means, mean(cvs))  # Compute and store the average CV
 end
 
 # Plotting average CV as a function of τ_rel
-p = plot(τ_rel_array, cv_means, xlabel="τ_rel (ms)", ylabel="Coefficient of Variation (CV)",
-         title="Average CV as a Function of τ_rel", legend=false, marker=:circle,left_margin=20mm,bottom_margin=20mm,size=(800,600))
+p = plot(τ_abs_array, cv_means, xlabel="τ_abs (ms)", ylabel="Coefficient of Variation (CV)",
+         title="Average CV as a Function of τ_abs", legend=false, marker=:circle,left_margin=20mm,bottom_margin=20mm,size=(800,600))
 
 # Save the plot
-savefig(p, "CV_vs_tau_rel_average.png")
+savefig(p, "p3_e.png")
+
+
