@@ -21,7 +21,7 @@ function simulate_spike_times(λ, τ_abs, τ_rel, T, dt)
     while t < T
         # Calculate hazard rate at current time, considering λ in Hz and converting dt to seconds for this calculation
         rate = λ * (1 - exp(-(t - (isempty(spike_times) ? 0 : spike_times[end])-τ_abs) / τ_rel))
-        p_spike = 1 - exp(-rate * dt / 1000)  # Convert dt to seconds for this calculation if λ is in Hz
+        p_spike = 1 - exp(-rate * dt / 1000)  # Convert dt to seconds for this calculation because λ is in Hz
         if rand() < p_spike
             push!(spike_times, t)
             t += τ_abs  # Ensure τ_abs is in ms, consistent with t and dt

@@ -3,7 +3,7 @@ using Plots
 using LinearAlgebra  # Add this line to use eigvals
 using Measures
 using DifferentialEquations
-
+using ProgressMeter
 
 # Define the system dynamics and Jacobian matrix
 function system_dynamics!(F, x, y)
@@ -84,12 +84,117 @@ sol = solve(prob, Tsit5(), saveat=0.1)
 v_t = [u[1] for u in sol.u]
 y_t = [u[3] for u in sol.u]
 
+
+
+
+# Define the system of differential equations for the model
+function bursting_model!(du, u, p, t)
+    v, w = u
+    y = p
+    m_inf = 0.5 * (1 + tanh((v + 0.01) / 0.15))
+    w_inf = 0.5 * (1 + tanh((v - 0.1) / 0.145))
+    tau = cosh((v - 0.1) / 0.29)
+    
+    du[1] = y - 0.5*(v + 0.5) - 2*w*(v + 0.7) - m_inf*(v - 1) # dv/dt
+    du[2] = 1.15*(w_inf - w)*tau # dw/dt
+end
+
+
+function count_crossings(values, threshold)
+    crossings = 0
+    for i in 2:length(values)
+        if (values[i-1] < threshold && values[i] > threshold) || (values[i-1] > threshold && values[i] < threshold)
+            crossings += 1
+        end
+    end
+    return crossings
+end
+
+# Prepare for simulation
+min_v_values = Float64[]
+max_v_values = Float64[]
+associated_y_min_v = Float64[]
+associated_y_max_v = Float64[]
+
+
+spk=zip(-0.1:0.01:0.2, -1:0.000001:1, -1:0.000001:1)
+
+y_range = 0.05:0.001:0.10
+v_range = -0.3:0.01:1  # Example with coarser granularity
+w_range = -0.5:0.1:1  # Example with coarser granularity
+
+total_iterations = length(y_range) * length(v_range) * length(w_range)
+progress = Progress(total_iterations, desc="Processing", barlen=20)
+
+#for (y, v, w) in spk# zip(stable_y, stable_v, stable_w)
+for y in y_range
+    for v in v_range
+        for w in w_range
+
+    next!(progress)
+    initial_conditions = [v, w]
+    tspan = (0.0, 3000.0)  # Adjust simulation time as necessary
+    prob = ODEProblem(bursting_model!, initial_conditions, tspan, y)
+    sol = solve(prob, Tsit5(), reltol=1e-8, abstol=1e-8)
+
+    # Find min and max of v for this simulation
+    v_values = sol[1, 1000:end]
+    if count_crossings(v_values, v) > 5
+        min_v, max_v = minimum(v_values), maximum(v_values)
+        push!(min_v_values, min_v)
+        push!(max_v_values, max_v)
+        push!(associated_y_min_v, y)
+        push!(associated_y_max_v, y) 
+    end
+end
+end
+end
+
+
+# Initialize dictionaries to store the overall min and max v values for each unique y
+min_v_for_y = Dict{Float64, Float64}()
+max_v_for_y = Dict{Float64, Float64}()
+
+# Process minimum v values
+for (i, y) in enumerate(associated_y_min_v)
+    min_v = min_v_values[i]
+    # If y already exists in the dictionary, update it if the current min_v is smaller
+    if haskey(min_v_for_y, y)
+        min_v_for_y[y] = min(min_v_for_y[y], min_v)
+    else
+        min_v_for_y[y] = min_v
+    end
+end
+
+# Process maximum v values
+for (i, y) in enumerate(associated_y_max_v)
+    max_v = max_v_values[i]
+    # If y already exists in the dictionary, update it if the current max_v is larger
+    if haskey(max_v_for_y, y)
+        max_v_for_y[y] = max(max_v_for_y[y], max_v)
+    else
+        max_v_for_y[y] = max_v
+    end
+end
+
+# Convert the dictionaries back to lists if needed, or use them as is depending on your requirements.
+# For example, to get lists of unique y values and their associated min/max v values:
+unique_y_values = collect(keys(min_v_for_y))
+associated_min_v = [min_v_for_y[y] for y in unique_y_values]
+associated_max_v = [max_v_for_y[y] for y in unique_y_values]
+
+
+
+
 # Overlay y(t) vs. v(t) onto the existing plot of fixed points
 plot!(p, y_t[100:end], v_t[100:end], label="Trajectory", color=:black, linewidth=1)
 
 xlabel!(p, "y")
 ylabel!(p, "v(t)")
 title!(p, "Stability of Fixed Points with System Trajectory")
+
+scatter!(p, unique_y_values, min_v_values, label="Min v Values", color=:green, markersize=3, markerstrokecolor=:green)
+scatter!(p, unique_y_values, max_v_values, label="Max v Values", color=:purple, markersize=3, markerstrokecolor=:purple)
 
 # Save the combined plot
 savefig(p, "p1_d.png")

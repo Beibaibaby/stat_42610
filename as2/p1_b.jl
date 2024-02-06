@@ -4,6 +4,8 @@ using Plots
 using LinearAlgebra
 using Measures
 using ProgressMeter
+using CSV
+using DataFrames
 
 # Define the system dynamics and Jacobian matrix
 function system_dynamics!(F, x, y)
@@ -35,7 +37,7 @@ unstable_w = Float64[]
 
 # Solve for fixed points and check their stability across a range of y values
 #ys = -0.1:0.001:0.2
-ys = -0.1:0.01:0.2
+ys = -0.1:0.001:0.2
 
 for y in ys
     # Range of initial guesses for v and w
@@ -60,7 +62,6 @@ for y in ys
         end
     end
 end
-
 
 
 
@@ -98,9 +99,9 @@ associated_y_max_v = Float64[]
 
 spk=zip(-0.1:0.01:0.2, -1:0.000001:1, -1:0.000001:1)
 
-y_range = -0.1:0.01:0.2
-v_range = -1:0.01:1  # Example with coarser granularity
-w_range = -1:0.01:1  # Example with coarser granularity
+y_range = 0.05:0.001:0.12
+v_range = -0.3:0.01:1  # Example with coarser granularity
+w_range = -0.5:0.1:1  # Example with coarser granularity
 
 total_iterations = length(y_range) * length(v_range) * length(w_range)
 progress = Progress(total_iterations, desc="Processing", barlen=20)
@@ -128,6 +129,8 @@ for y in y_range
 end
 end
 end
+
+
 
 
 
@@ -162,6 +165,39 @@ end
 end
 =#
 
+# Initialize dictionaries to store the overall min and max v values for each unique y
+min_v_for_y = Dict{Float64, Float64}()
+max_v_for_y = Dict{Float64, Float64}()
+
+# Process minimum v values
+for (i, y) in enumerate(associated_y_min_v)
+    min_v = min_v_values[i]
+    # If y already exists in the dictionary, update it if the current min_v is smaller
+    if haskey(min_v_for_y, y)
+        min_v_for_y[y] = min(min_v_for_y[y], min_v)
+    else
+        min_v_for_y[y] = min_v
+    end
+end
+
+# Process maximum v values
+for (i, y) in enumerate(associated_y_max_v)
+    max_v = max_v_values[i]
+    # If y already exists in the dictionary, update it if the current max_v is larger
+    if haskey(max_v_for_y, y)
+        max_v_for_y[y] = max(max_v_for_y[y], max_v)
+    else
+        max_v_for_y[y] = max_v
+    end
+end
+
+# Convert the dictionaries back to lists if needed, or use them as is depending on your requirements.
+# For example, to get lists of unique y values and their associated min/max v values:
+unique_y_values = collect(keys(min_v_for_y))
+associated_min_v = [min_v_for_y[y] for y in unique_y_values]
+associated_max_v = [max_v_for_y[y] for y in unique_y_values]
+
+
 # Plotting
 p = scatter(stable_y, stable_v, label="Stable", color=:blue, markersize=4, markerstrokecolor=:blue,size=(800, 600),left_margin=20mm)
 scatter!(p, unstable_y, unstable_v, label="Unstable", color=:red, markersize=4, markerstrokecolor=:red, linestyle=:dash)
@@ -171,9 +207,14 @@ ylabel!(p, "Fixed Point v*")
 title!(p, "Stability of Fixed Points")
 
 # Plot min and max v values with their associated y values
-scatter!(p, associated_y_min_v, min_v_values, label="Min v Values", color=:green, markersize=4, markerstrokecolor=:green)
-scatter!(p, associated_y_max_v, max_v_values, label="Max v Values", color=:purple, markersize=4, markerstrokecolor=:purple)
+scatter!(p, unique_y_values, min_v_values, label="Min v Values", color=:green, markersize=4, markerstrokecolor=:green)
+scatter!(p, unique_y_values, max_v_values, label="Max v Values", color=:purple, markersize=4, markerstrokecolor=:purple)
 
 
 savefig("p1_b.png")
 
+# Create a DataFrame from the processed data
+data = DataFrame(y=unique_y_values, min_v=min_v_values, max_v=max_v_values)
+
+# Save the DataFrame to a CSV file
+CSV.write("processed_v_values.csv", data)

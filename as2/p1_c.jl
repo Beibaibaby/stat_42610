@@ -3,7 +3,7 @@ using Plots
 using LinearAlgebra  # Add this line to use eigvals
 using Measures
 using DifferentialEquations
-
+using ProgressMeter
 
 # Define the system dynamics and Jacobian matrix
 function system_dynamics!(F, x, y)
@@ -84,12 +84,17 @@ sol = solve(prob, Tsit5(), saveat=0.1)
 v_t = [u[1] for u in sol.u]
 y_t = [u[3] for u in sol.u]
 
+
 # Overlay y(t) vs. v(t) onto the existing plot of fixed points
 plot!(p, y_t[100:end], v_t[100:end], label="Trajectory", color=:black, linewidth=1)
 
 xlabel!(p, "y")
 ylabel!(p, "v(t)")
 title!(p, "Stability of Fixed Points with System Trajectory")
+
+scatter!(p, unique_y_values, min_v_values, label="Min v Values", color=:green, markersize=3, markerstrokecolor=:green)
+scatter!(p, unique_y_values, max_v_values, label="Max v Values", color=:purple, markersize=3, markerstrokecolor=:purple)
+
 
 # Save the combined plot
 savefig(p, "p1_c.png")
