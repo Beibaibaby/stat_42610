@@ -3,6 +3,7 @@ using DifferentialEquations
 using Plots
 using LinearAlgebra
 using Measures
+using ProgressMeter
 
 # Define the system dynamics and Jacobian matrix
 function system_dynamics!(F, x, y)
@@ -94,45 +95,72 @@ max_v_values = Float64[]
 associated_y_min_v = Float64[]
 associated_y_max_v = Float64[]
 
-for (y, v, w) in zip(stable_y, stable_v, stable_w)
+
+spk=zip(-0.1:0.01:0.2, -1:0.000001:1, -1:0.000001:1)
+
+y_range = -0.1:0.01:0.2
+v_range = -1:0.01:1  # Example with coarser granularity
+w_range = -1:0.01:1  # Example with coarser granularity
+
+total_iterations = length(y_range) * length(v_range) * length(w_range)
+progress = Progress(total_iterations, desc="Processing", barlen=20)
+
+#for (y, v, w) in spk# zip(stable_y, stable_v, stable_w)
+for y in y_range
+    for v in v_range
+        for w in w_range
+
+    next!(progress)
     initial_conditions = [v, w]
-    tspan = (0.0, 1500.0)  # Adjust simulation time as necessary
+    tspan = (0.0, 3000.0)  # Adjust simulation time as necessary
     prob = ODEProblem(bursting_model!, initial_conditions, tspan, y)
     sol = solve(prob, Tsit5(), reltol=1e-8, abstol=1e-8)
 
     # Find min and max of v for this simulation
-    v_values = sol[1, :]
-    if count_crossings(v_values, v) > 10
+    v_values = sol[1, 1000:end]
+    if count_crossings(v_values, v) > 5
         min_v, max_v = minimum(v_values), maximum(v_values)
         push!(min_v_values, min_v)
         push!(max_v_values, max_v)
         push!(associated_y_min_v, y)
         push!(associated_y_max_v, y) 
     end
-
+end
+end
 end
 
 
+
+#=
+total_iterations = length(y_range) * length(v_range) * length(w_range)
+progress = Progress(total_iterations, desc="Processing", barlen=20)
+
 # Repeat for unstable points
-for (y, v, w) in zip(unstable_y, unstable_v, unstable_w)
-    if  v > 0.0
+#for (y, v, w) in spk #zip(unstable_y, unstable_v, unstable_w)
+for y in y_range
+    for v in v_range
+        for w in w_range
+        next!(progress)
+    
         initial_conditions = [v, w]
-        tspan = (0.0, 1500.0)  # Adjust simulation time as necessary
+        tspan = (0.0, 3000.0)  # Adjust simulation time as necessary
         prob = ODEProblem(bursting_model!, initial_conditions, tspan, y)
         sol = solve(prob, Tsit5(), reltol=1e-8, abstol=1e-8)
 
-        v_values = sol[1, :]
-        if count_crossings(v_values, v) > 1
-            min_v, max_v = minimum(v_values[1:100]), maximum(v_values[1:100])
+        v_values = sol[1, 1000:end]
+        if count_crossings(v_values, v) > 5
+            min_v, max_v = minimum(v_values), maximum(v_values)
             push!(min_v_values, min_v)
             push!(max_v_values, max_v)
             push!(associated_y_min_v, y)
             push!(associated_y_max_v, y) 
         end
-    end
+    
     
 end
-
+end
+end
+=#
 
 # Plotting
 p = scatter(stable_y, stable_v, label="Stable", color=:blue, markersize=4, markerstrokecolor=:blue,size=(800, 600),left_margin=20mm)
