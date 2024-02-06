@@ -12,12 +12,12 @@ end
 
 # Numerical integration of ρ(τ) from tau_abs to infinity
 function integrate_mean(lambda, tau_abs, tau_rel)
-    integral, error = quadgk(tau -> tau*rho(tau, lambda, tau_rel, tau_abs), tau_abs, 10000)
+    integral, error = quadgk(tau -> tau*rho(tau, lambda, tau_rel, tau_abs), tau_abs, Inf)
     return integral
 end
 
 function integrate_second(lambda, tau_abs, tau_rel)
-    integral, error = quadgk(tau -> tau^2*rho(tau, lambda, tau_rel, tau_abs), tau_abs, 10000)
+    integral, error = quadgk(tau -> tau^2*rho(tau, lambda, tau_rel, tau_abs), tau_abs, Inf)
     return integral
 end
 

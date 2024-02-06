@@ -2,6 +2,7 @@ using Distributions
 using Plots
 using Statistics
 using Measures
+using QuadGK
 
 # Analytical solution for ρ(τ)
 function rho_analytical(τ, λ, τ_abs, τ_rel)
@@ -19,11 +20,16 @@ function simulate_spike_times(λ, τ_abs, τ_rel, T, dt)
     spike_times = []
     while t < T
         # Calculate hazard rate at current time, considering λ in Hz and converting dt to seconds for this calculation
-        rate = λ * (1 - exp(-(t - (isempty(spike_times) ? 0 : spike_times[end])) / τ_rel))
+        rate = λ * (1 - exp(-(t - (isempty(spike_times) ? 0 : spike_times[end])-τ_abs) / τ_rel))
+        if (t - (isempty(spike_times) ? 0 : spike_times[end])) < τ_abs
+            rate = 0
+        end
         p_spike = 1 - exp(-rate * dt / 1000)  # Convert dt to seconds for this calculation if λ is in Hz
         if rand() < p_spike
             push!(spike_times, t)
             t += τ_abs  # Ensure τ_abs is in ms, consistent with t and dt
+             #to the next iteration
+            continue
         end
         t += dt
     end
@@ -54,32 +60,51 @@ function compute_cv(spike_times)
     return std(isi) / mean(isi)
 end
 
+function rho(tau, lambda, tau_rel, tau_abs)
+    return lambda * (1 - exp(-(tau - tau_abs) / tau_rel)) * exp(-lambda * (tau - tau_abs + tau_rel * exp(-(tau - tau_abs) / tau_rel) - tau_rel))
+end
+
+
+# Function to compute the analytic CV
+function compute_analytic_cv(lambda, tau_abs, tau_rel)
+    mean_int, _ = quadgk(tau -> tau * rho(tau, lambda, tau_rel, tau_abs), tau_abs, Inf)
+    second_moment_int, _ = quadgk(tau -> tau^2 * rho(tau, lambda, tau_rel, tau_abs), tau_abs, Inf)
+    cv = sqrt(second_moment_int - mean_int^2) / mean_int
+    return cv
+end
+
 # Initialize parameters
-λ = 30.0  # Hz
-τ_rel = 3.0  # ms, fixed absolute refractory period
-τ_abs_values = 0:1:20  # ms, range of relative refractory periods
-num_simulations = 10  # Number of simulations per τ_rel value
+λ = 30.0 / 1000  # Hz to kHz for consistency with ms
+τ_abs_values = 0:2:20  # ms, range of absolute refractory periods
+τ_rel = 3.0  # ms, fixed relative refractory period for this example
+num_simulations = 1  # Number of simulations per τ_abs value
 
 # Arrays to store results
-τ_abs_array = []
-cv_means = []
+τ_abs_array = collect(τ_abs_values)
+cv_means = Float64[]
+cv_analytic_array = Float64[]
 
 for τ_abs in τ_abs_values
     cvs = Float64[]  # To store CVs for each simulation
     for sim in 1:num_simulations
-        spike_times = simulate_spike_times(λ, τ_abs, τ_rel, 1e5,0.1)
+        # Adjust λ back to Hz, simulate spike times
+        spike_times = simulate_spike_times(λ * 1000, τ_abs, τ_rel, 1e7, 1)
         cv = compute_cv(spike_times)
         push!(cvs, cv)
     end
-    push!(τ_abs_array, τ_abs)
     push!(cv_means, mean(cvs))  # Compute and store the average CV
+    
+    # Compute and store the analytic CV
+    analytic_cv = compute_analytic_cv(λ, τ_abs, τ_rel)
+    push!(cv_analytic_array, analytic_cv)
 end
 
-# Plotting average CV as a function of τ_rel
-p = plot(τ_abs_array, cv_means, xlabel="τ_abs (ms)", ylabel="Coefficient of Variation (CV)",
-         title="Average CV as a Function of τ_abs", legend=false, marker=:circle,left_margin=20mm,bottom_margin=20mm,size=(800,600),left_margin)
+# Plotting both numerical and analytic CV as functions of τ_abs
+p = plot(τ_abs_array, cv_means, xlabel="τ_abs (ms)", ylabel="Coefficient of Variation (CV)", 
+         title="CV as a Function of τ_abs", label="Numerical CV", marker=:circle, 
+         legend=:topright, size=(800,600), left_margin=20mm, bottom_margin=20mm)
+
+plot!(p, τ_abs_array, cv_analytic_array, label="Analytic CV", marker=:square, line=:dash, color=:red)
 
 # Save the plot
-savefig(p, "p3_e.png")
-
-
+savefig(p, "p3_y.png")

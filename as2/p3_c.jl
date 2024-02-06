@@ -19,7 +19,7 @@ function simulate_spike_times(λ, τ_abs, τ_rel, T, dt)
     spike_times = []
     while t < T
         # Calculate hazard rate at current time, considering λ in Hz and converting dt to seconds for this calculation
-        rate = λ * (1 - exp(-(t - (isempty(spike_times) ? 0 : spike_times[end])) / τ_rel))
+        rate = λ * (1 - exp(-(t - (isempty(spike_times) ? 0 : spike_times[end])-τ_abs) / τ_rel))
         p_spike = 1 - exp(-rate * dt / 1000)  # Convert dt to seconds for this calculation if λ is in Hz
         if rand() < p_spike
             push!(spike_times, t)
@@ -41,7 +41,7 @@ function estimate_rho(spike_times, τ_abs, τ_rel, λ)
     ρ_analytical_vals = [rho_analytical(τ, λ/1000, τ_abs, τ_rel) for τ in τ_vals]
 
     # Plot numerical estimation as histogram
-    histogram(isi, bins=500, normed=true, alpha=0.5, label="Numerical τ_abs=$τ_abs, τ_rel=$τ_rel",left_margin=20mm,bottom_margin=20mm,size=(800,600))
+    histogram(isi, bins=100, normed=true, alpha=0.5, label="Numerical τ_abs=$τ_abs, τ_rel=$τ_rel",left_margin=20mm,bottom_margin=20mm,size=(800,600))
 
     # Overlay analytical solution
     plot!(τ_vals, ρ_analytical_vals, label="Analytical τ_abs=$τ_abs, τ_rel=$τ_rel", lw=2)
