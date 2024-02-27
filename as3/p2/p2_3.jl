@@ -1,6 +1,7 @@
-#this file is part of litwin-kumar_doiron_cluster_2012
-#Copyright (C) 2014 Ashok Litwin-Kumar
-#see README for more information
+
+using Statistics
+using Plots
+using Measures  # For specifying margins in mm
 
 function sim(N)
 	println("setting up parameters")
@@ -9,7 +10,7 @@ function sim(N)
 	Ni = N
 	Ncells= Ne + Ni
 
-	T = 2500 #simulation time (ms)
+	T = 1000 #simulation time (ms)
 
 	taue = 15 #membrane time constant for exc. neurons (ms)
 	taui = 15
@@ -20,15 +21,15 @@ function sim(N)
 	K = p * N #average number in-pop connections per neuron
 	sqrtK = sqrt(K)
 
-	jie = 2.0 /sqrtK
-	jee = 1.0 /sqrtK
+	jie = 2.0 /K
+	jee = 1.0 /K
 
-	jei = -3.0 /sqrtK
-	jii = -2.5 /sqrtK
+	jei = -3.0 /K
+	jii = -2.5 /K
 
 
-	stimstr_E = 1.2 * sqrtK 
-	stimstr_I = 0.7 * sqrtK 
+	stimstr_E = 1.2 
+	stimstr_I = 0.7 
 
 	stimstart = 0
 	stimend = T 
@@ -156,4 +157,38 @@ function sim(N)
 	return times,ns,Ne,Ncells,T
 end
 
+doplot = true
 
+
+
+times, ns, Ne, Ncells, T = sim(1000)
+
+println("mean excitatory firing rate: ", mean(1000 * ns[1:Ne] / T), " Hz")
+println("mean inhibitory firing rate: ", mean(1000 * ns[(Ne + 1):Ncells] / T), " Hz")
+
+if doplot
+    println("creating plot")
+    p = plot(layout=(1,1), size=(600,400))  # Initialize an empty plot with specified size
+    
+    # Excitatory neurons
+    for ci = 1:Ne
+        vals = times[ci, 1:ns[ci]]
+        scatter!(vals, fill(ci, length(vals)), label=false, markersize=0.3, markerstrokewidth=0, color=:red)
+    end
+    
+    # Inhibitory neurons
+    for ci = Ne+1:Ncells
+        vals = times[ci, 1:ns[ci]]
+        scatter!(vals, fill(ci, length(vals)), label=false, markersize=0.3, markerstrokewidth=0, color=:blue)
+    end
+
+    xlims!(0, T)
+    ylims!(0, Ncells)
+    ylabel!("Neuron")
+    xlabel!("Time (ms)")
+    title!("Neuronal Firing Raster Plot")
+
+    plot!(margin=5mm)  # Set margins
+
+    savefig("p2_3.png")
+end

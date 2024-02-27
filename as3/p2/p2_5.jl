@@ -1,15 +1,15 @@
-#this file is part of litwin-kumar_doiron_cluster_2012
-#Copyright (C) 2014 Ashok Litwin-Kumar
-#see README for more information
+using Plots
+using Measures
 
-function sim(N)
+function sim(N,weights_same,pertub_spike,pertub_v)
 	println("setting up parameters")
+    weights =copy(weights_same)
 	
 	Ne = N
 	Ni = N
 	Ncells= Ne + Ni
 
-	T = 2500 #simulation time (ms)
+	T = 1000 #simulation time (ms)
 
 	taue = 15 #membrane time constant for exc. neurons (ms)
 	taui = 15
@@ -60,18 +60,8 @@ function sim(N)
 	tau[(1+Ne):Ncells] .= taui
 
 
-	weights = zeros(Ncells,Ncells)
 
-	#random connections
-	weights[1:Ne,1:Ne] = jee*(rand(Ne,Ne) .< p)
-	weights[1:Ne,(1+Ne):Ncells] = jei*(rand(Ne,Ni) .< p)
-	weights[(1+Ne):Ncells,1:Ne] = jie*(rand(Ni,Ne) .< p)
-	weights[(1+Ne):Ncells,(1+Ne):Ncells] = jii*(rand(Ni,Ni) .< p)
-	
 
-	for ci = 1:Ncells
-		weights[ci,ci] = 0
-	end
 
 	maxTimes = round(Int,maxrate*T/1000)
 	times = zeros(Ncells,maxTimes)
@@ -87,7 +77,7 @@ function sim(N)
 	xirise = zeros(Ncells)
 	xidecay = zeros(Ncells)
 
-	v = rand(Ncells) #membrane voltage 
+	v = zeros(Ncells) #membrane voltage 
 
 	lastSpike = -1000*ones(Ncells) #time of last spike
 
@@ -96,6 +86,8 @@ function sim(N)
 	println("starting simulation")
 
 	#begin main simulation loop
+
+    v_history_1 = Float64[] # to store the voltage of neuron 1 over time
 	for ti = 1:Nsteps
 		if mod(ti,Nsteps/100) == 1  #print percent complete
 			print("\r",round(Int,100*ti/Nsteps))
@@ -126,6 +118,23 @@ function sim(N)
 
 			if t > (lastSpike[ci] + refrac)  #not in refractory period
 				v[ci] += dt*((1/tau[ci])*(-v[ci]) + recurrent_input + external_input/tau[ci])
+                
+                if pertub_spike == true
+                    if ci == 1
+                        if ti == round(Int, 500 / dt)
+                          v[ci] = 1.1
+                        end
+                    end
+                end
+
+                if pertub_v == true
+                    if ci == 1
+                        if ti == round(Int, 500 / dt)
+                          v[ci] = v[ci] + 0.5
+                        end
+                    end
+                end
+    
 
 				if v[ci] > thresh[ci]  #spike occurred
 					v[ci] = vre
@@ -148,12 +157,60 @@ function sim(N)
 
 		forwardInputsEPrev = copy(forwardInputsE)
 		forwardInputsIPrev = copy(forwardInputsI)
+        push!(v_history_1, v[1]) # store the voltage of neuron 1
 	end #end loop over time
 	print("\r")
 
 	times = times[:,1:maximum(ns)]
 
-	return times,ns,Ne,Ncells,T
+	return times,ns,Ne,Ncells,T, v_history_1
 end
 
 
+N = 1000
+Ncells = 2N
+Ne=N
+Ni=N
+
+p = 0.2 #connection probabilities
+
+K = p * N #average number in-pop connections per neuron
+sqrtK = sqrt(K)
+
+jie = 2.0 /sqrtK
+jee = 1.0 /sqrtK
+
+jei = -3.0 /sqrtK
+jii = -2.5 /sqrtK
+
+
+stimstr_E = 1.2 * sqrtK 
+stimstr_I = 0.7 * sqrtK 
+
+
+weights_same = zeros(Ncells,Ncells)
+
+#random connections
+weights_same[1:Ne,1:Ne] = jee*(rand(Ne,Ne) .< p)
+weights_same[1:Ne,(1+Ne):Ncells] = jei*(rand(Ne,Ni) .< p)
+weights_same[(1+Ne):Ncells,1:Ne] = jie*(rand(Ni,Ne) .< p)
+weights_same[(1+Ne):Ncells,(1+Ne):Ncells] = jii*(rand(Ni,Ni) .< p)
+
+for ci = 1:Ncells
+    weights_same[ci,ci] = 0
+end
+
+# Run simulations with and without voltage perturbation
+_, _, _, _, _, v_history_no_pertub = sim(1000, weights_same, false, false)
+_, _, _, _, _, v_history_with_pertub = sim(1000, weights_same,false, true)
+
+# Compute ∆V
+delta_v = v_history_with_pertub .- v_history_no_pertub
+dt = 0.1
+# Time vector to plot ∆V around 500ms
+time_vector = (1:length(delta_v)) * dt
+
+# Plot ∆V
+p=plot(time_vector, delta_v, label="∆V (V1E)", xlabel="Time (ms)", ylabel="Voltage Difference (∆V)", title="Voltage Difference Around 500ms", xlims=(450, 600), legend=:topright,left_margin=20mm,top_margin=20mm)
+# Save the plot
+savefig(p, "p2_5.png")
