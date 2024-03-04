@@ -3,19 +3,20 @@ using Plots
 using LinearAlgebra
 using Statistics
 using Measures
+using ProgressMeter  # Import the ProgressMeter package
 
 # Parameters
 T = 30000  # Time steps
 N = 1000  # Number of neurons
 alpha_c = 1 / (2 * log(N))
 p_start = round(Int, 0.5 * N / (2 * log(N)))  # Starting value of p, rounded to nearest integer
-p_end = round(Int, 2 * N / (2 * log(N)))  # Ending value of p, rounded to nearest integer
-p_values = range(p_start, p_end, length=10)  # Sample p values linearly in the range
+p_end = round(Int, 3.0 * N / (2 * log(N)))  # Ending value of p, rounded to nearest integer
+p_values = collect(range(p_start, p_end, length=6))  # Sample p values linearly in the range and ensure it's a collection for progress iteration
 
 function simulate_coherence_for_p(p)
-    average_coherences = zeros(30)  # Store coherence for each run
+    coherences = zeros(30)  # Store coherence for each run
     
-    for simulation in 1:30
+    @showprogress 1 "Simulating for p=$p..." for simulation in 1:30
         # Generate p patterns
         xi_patterns = [rand([-1, 1], N) for _ in 1:p]
 
@@ -40,21 +41,27 @@ function simulate_coherence_for_p(p)
 
         # Compute coherence relative to the first pattern
         coherence = dot(S, xi_patterns[1]) / N
-        average_coherences[simulation] = coherence
-        
+        coherences[simulation] = coherence
     end
     
-    return mean(average_coherences)  # Return the average of averages
+    return mean(coherences)  # Return the average coherence over the runs
 end
 
-# Compute the average coherence for each p, averaged over 10 runs
-average_coherences = [simulate_coherence_for_p(Int(round(p))) for p in p_values]
+# Prepare for progress display
+p_len = length(p_values)
+progress = Progress(p_len, desc="Computing coherences")
+
+average_coherences = zeros(p_len)
+for (i, p) in enumerate(p_values)
+    average_coherences[i] = simulate_coherence_for_p(Int(round(p)))
+    next!(progress)
+end
 
 # Plotting
-alpha_rel_c = p_values / (N * alpha_c)  # Compute alpha relative to alpha_c
+alpha_rel_c = p_values ./ (N * alpha_c)  # Compute alpha relative to alpha_c
 xticks = minimum(alpha_rel_c):0.1:maximum(alpha_rel_c)  # Define x-ticks
 
-p = plot(alpha_rel_c, average_coherences, xlabel="alpha / alpha_c", ylabel="<m^1(T)>", title="Average Coherence vs. Alpha", legend=false, left_margin=15mm, bottom_margin=5mm, top_margin=5mm, right_margin=5mm)
+plot(alpha_rel_c, average_coherences, xlabel="alpha / alpha_c", ylabel="<m^1(T)>", title="Average Coherence vs. Alpha", legend=false, left_margin=15mm, bottom_margin=5mm, top_margin=5mm, right_margin=5mm)
 
 # Save the plot to a file
 savefig("p2_b.png")
