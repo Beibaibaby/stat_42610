@@ -302,7 +302,7 @@ end
 ########
 #######
 ######Longer Stim for Statistics
-T=3100
+T=20100
 times, ns, Ne, Ncells, T,lambda_ts = sim(1000,T)
 println("mean excitatory firing rate: ", mean(1000 * ns[1:Ne] / T), " Hz")
 println("mean inhibitory firing rate: ", mean(1000 * ns[(Ne + 1):Ncells] / T), " Hz")
@@ -391,7 +391,7 @@ function compute_CV_X(lambda_t)
 end
 
 # Parameters
-T = 20000.0  # Total simulation time in ms
+T = 2000000.0  # Total simulation time in ms
 dt = 0.1    # Time step in ms
 lambda_h = 2.0  # Base firing rate
 tau_lambda = 250.0  # Time constant

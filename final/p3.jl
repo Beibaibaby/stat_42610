@@ -315,7 +315,7 @@ end
 ########
 #######
 ######Longer Stim for Statistics
-T=6100
+T=10100
 times, ns, Ne, Ncells, T,lambda_t_record,lambda_t_2_record = sim(1000,T)
 println("mean excitatory firing rate: ", mean(1000 * ns[1:Ne] / T), " Hz")
 println("mean inhibitory firing rate: ", mean(1000 * ns[(Ne + 1):Ncells] / T), " Hz")
@@ -453,6 +453,17 @@ ylabel!("Firing Rate (Hz)")
 plot!(margin=5mm)  # Set margins
 
 savefig("p3d.png")
+
+
+#plot the lambda_t_record,lambda_t_2_record  in a same plot named p3e
+py = plot(time_bins[start_index:end_index], lambda_t_record[start_index:end_index], label="lambda_t", color=:orange,left_margin=10mm)
+plot!(time_bins[start_index:end_index], lambda_t_2_record[start_index:end_index], label="lambda_t_2", color=:green,left_margin=10mm)
+
+title!("lambda_t and lambda_t_2 Over Time")
+xlabel!("Time (ms)")
+ylabel!("lambda_t")
+plot!(margin=5mm)  # Set margins
+savefig("p3e.png")
 
 function simulate_lambda(T, dt, lambda_h, tau_lambda, sigma_lambda)
     Nsteps = round(Int, T/dt)
