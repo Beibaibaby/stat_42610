@@ -1,7 +1,7 @@
 using Statistics
 using Plots
 using Measures  # For specifying margins in mm
-
+ENV["GKSwstype"] = "100"  # Use the off-screen GKS terminal
 # Function to generate a spike based on a homogeneous Poisson process
 function generate_homogeneous_poisson_spike(λ, dt)
     u = rand() # Uniform random variable U(0, 1)
@@ -36,11 +36,6 @@ function sim(N,T)
 
 	stimstart = 0
 	stimend = T 
-
-	tauerise = 1
-	tauedecay = 3
-	tauirise = 1
-	tauidecay = 3
 
 
 	vre = 0.0 #reset voltage
@@ -140,14 +135,8 @@ function sim(N,T)
 					external_input = jiX
 				end
 			end
-		   
-			#xerise[ci] += -dt*xerise[ci]/tauerise + forwardInputsEPrev[ci]+external_input
-			#xedecay[ci] += -dt*xedecay[ci]/tauedecay + forwardInputsEPrev[ci]+external_input
-			#xirise[ci] += -dt*xirise[ci]/tauirise + forwardInputsIPrev[ci]
-			#xidecay[ci] += -dt*xidecay[ci]/tauidecay + forwardInputsIPrev[ci]
 
-			#recurrent_input = (xedecay[ci] - xerise[ci])/(tauedecay - tauerise) + (xidecay[ci] - xirise[ci])/(tauidecay - tauirise)
-            recurrent_input= forwardInputsEPrev[ci]+forwardInputsIPrev[ci]
+		    recurrent_input= forwardInputsEPrev[ci]+forwardInputsIPrev[ci]
 
 			if t > (lastSpike[ci] + refrac)  #not in refractory period
 				v[ci] += dt*((1/tau[ci])*(-v[ci]) )+recurrent_input+external_input
@@ -272,6 +261,15 @@ M_E = mean(R_E_t[start_index:end_index])
 CV_E = std(R_E_t[start_index:end_index]) / M_E
 
 
+println("M^E: $M_E Hz, CV^E: $CV_E")
+
+CV_lm=std(lambda_ts)/mean(lambda_ts)
+println("CV lambda: $CV_lm") 
+println("Size of Lambda_ts: $(size(lambda_ts))")
+println("Size of R_E_t: $(size(R_E_t))")
+
+
+
 if doplot
     # Define the time range to exclude first and last 50 ms from the plot
     plot_start = 50  # Start plotting from 50 ms
@@ -304,7 +302,7 @@ end
 ########
 #######
 ######Longer Stim for Statistics
-T=10100
+T=3100
 times, ns, Ne, Ncells, T,lambda_ts = sim(1000,T)
 println("mean excitatory firing rate: ", mean(1000 * ns[1:Ne] / T), " Hz")
 println("mean inhibitory firing rate: ", mean(1000 * ns[(Ne + 1):Ncells] / T), " Hz")
@@ -361,6 +359,15 @@ println("Size of Lambda_ts: $(size(lambda_ts))")
 println("Size of R_E_t: $(size(R_E_t))")
 
 
+p4 = plot(time_bins[start_index:end_index], R_E_t[start_index:end_index], label="R^E(t)", color=:red,left_margin=10mm)
+title!("E Neuron Firing Rate Over Time")
+xlabel!("Time (ms)")
+ylabel!("Firing Rate (Hz)")
+plot!(margin=5mm)  # Set margins
+
+savefig("p2d.png")
+
+
 function simulate_lambda(T, dt, lambda_h, tau_lambda, sigma_lambda)
     Nsteps = round(Int, T/dt)
     lambda_t = zeros(Nsteps)
@@ -384,7 +391,7 @@ function compute_CV_X(lambda_t)
 end
 
 # Parameters
-T = 10000.0  # Total simulation time in ms
+T = 20000.0  # Total simulation time in ms
 dt = 0.1    # Time step in ms
 lambda_h = 2.0  # Base firing rate
 tau_lambda = 250.0  # Time constant

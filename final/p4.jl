@@ -82,6 +82,14 @@ function sim(N,T)
 	weights[1:Ne,(1+Ne):Ncells] = jei*(rand(Ne,Ni) .< p)
 	weights[(1+Ne):Ncells,1:Ne] = jie*(rand(Ni,Ne) .< p)
 	weights[(1+Ne):Ncells,(1+Ne):Ncells] = jii*(rand(Ni,Ni) .< p)
+
+	#double the strength of the first half of Eneuron to the fist half I-neuron
+	weights[1:Int(Ne/2),Ne:Ne+Int(Ne/2)+1] = 2*weights[1:Int(Ne/2),Ne:Ne+Int(Ne/2)+1]
+
+	#double the strength of the second half of Eneuron to the second half I-neuron
+	weights[Int(Ne/2)+1:Ne,Ne+Int(Ne/2)+1:Ncells] = 2*weights[Int(Ne/2)+1:Ne,Ne+Int(Ne/2)+1:Ncells]
+
+
 	
 
 	for ci = 1:Ncells
@@ -139,14 +147,11 @@ function sim(N,T)
 			# Update λ(t) for each neuron
 
 			# Generate external spike based on updated λ(t)
-			external_spike_1 = generate_homogeneous_poisson_spike(lambda_t, dt)
 
-            external_spike_2 = generate_homogeneous_poisson_spike(lambda_t_2, dt)
-
-            if ci <Ne/2 || (ci > Ne && ci < Ne + Ni/2)
-                external_spike = external_spike_1
+            if ci <Ne/2 || (ci > Ne && ci < Ne + Ne/2)
+                external_spike = generate_homogeneous_poisson_spike(lambda_t, dt)
             else
-                external_spike = external_spike_2
+                external_spike = generate_homogeneous_poisson_spike(lambda_t_2, dt)
             end
 
 			external_input = 0
@@ -237,7 +242,7 @@ if doplot
 
     plot!(margin=5mm)  # Set margins
 
-    savefig("p3a.png")
+    savefig("p4a.png")
 end
 
 
@@ -307,7 +312,7 @@ if doplot
     ylabel!("Firing Rate (Hz)")
     plot!(margin=5mm)  # Set margins
 
-    savefig("p3b.png")
+    savefig("p4b.png")
 end
 
 
@@ -433,26 +438,18 @@ println("CV for lambda_t_2: $CV_lambda_t_2")
 
 # Covariance between E1 and E2 firing rates
 cov_E1_E2 = cov(R_E1_t[start_index:end_index], R_E2_t[start_index:end_index])
-cor_E1_E2 = cor(R_E1_t[start_index:end_index], R_E2_t[start_index:end_index])
 
 
 println("Covariance between E1 and E2: $cov_E1_E2")
+
+cor_E1_E2 = cor(R_E1_t[start_index:end_index], R_E2_t[start_index:end_index])
+
+
 println("Correlation between E1 and E2: $cor_E1_E2")
 
 
+
 # Compute means of R_E1_t and R_E2_t within the specified interval
-
-
-px = plot(time_bins[start_index:end_index], R_E_t[start_index:end_index], label="R^E(t)", color=:red,left_margin=10mm)
-plot!(time_bins[start_index:end_index], R_E1_t[start_index:end_index], label="R^E1(t)", color=:green,left_margin=10mm)
-plot!(time_bins[start_index:end_index], R_E2_t[start_index:end_index], label="R^E2(t)", color=:purple,left_margin=10mm)
-
-title!("E Neuron Firing Rate Over Time")
-xlabel!("Time (ms)")
-ylabel!("Firing Rate (Hz)")
-plot!(margin=5mm)  # Set margins
-
-savefig("p3d.png")
 
 function simulate_lambda(T, dt, lambda_h, tau_lambda, sigma_lambda)
     Nsteps = round(Int, T/dt)
@@ -477,7 +474,7 @@ function compute_CV_X(lambda_t)
 end
 
 # Parameters
-T = 30000.0  # Total simulation time in ms
+T = 10000.0  # Total simulation time in ms
 dt = 0.1    # Time step in ms
 lambda_h = 2.0  # Base firing rate
 tau_lambda = 250.0  # Time constant
