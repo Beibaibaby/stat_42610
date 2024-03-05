@@ -57,7 +57,7 @@ function sim(N,T)
 	# Parameters for the λ(t) dynamics
     lambda_h = K / 100  # Base firing rate as before
     tau_lambda = 25 * taue  # Given τ_λ
-    sigma_lambda = 3 * lambda_h / K  # Given σ_λ
+    sigma_lambda = 3 * lambda_h / sqrt(K)  # Given σ_λ
 
     # Initial value of λ(t) for each neuron
     lambda_t =  lambda_h
@@ -124,14 +124,14 @@ function sim(N,T)
 		t = dt*ti
 		forwardInputsE[:] .= 0
 		forwardInputsI[:] .= 0
-
+        
         dW = randn()  # N(0,1) for white noise
         lambda_t += (dt / tau_lambda) * (lambda_h - lambda_t) + sigma_lambda * sqrt(dt / tau_lambda) * dW
         dW2 = randn()  # N(0,1) for white noise
         lambda_t_2 += (dt / tau_lambda) * (lambda_h - lambda_t_2) + sigma_lambda * sqrt(dt / tau_lambda) * dW2
         
-        push!(lambda_t_1, lambda_t_1_record)
-        push!(lambda_t_2, lambda_t_2_record)
+        lambda_t_record[ti] = lambda_t
+        lambda_t_2_record[ti] = lambda_t_2
 		
 		for ci = 1:Ncells
 
@@ -151,7 +151,7 @@ function sim(N,T)
 			external_input = 0
 
 			if external_spike
-				push!(external_spike_times[ci], t) # Record time of external spike
+				
 				if ci < Ne
 					external_input = jeX
 				else
@@ -196,7 +196,7 @@ function sim(N,T)
 
 	times = times[:,1:maximum(ns)]
 
-	return times,ns,Ne,Ncells,T,external_spike_times
+	return times,ns,Ne,Ncells,T,lambda_t_record,lambda_t_2_record
 end
 
 
@@ -207,7 +207,7 @@ end
 doplot = true
 
 T = 1100
-times, ns, Ne, Ncells, T,external_spike_times = sim(1000,T)
+times, ns, Ne, Ncells, T,lambda_t_record,lambda_t_2_record = sim(1000,T)
 
 println("mean excitatory firing rate: ", mean(1000 * ns[1:Ne] / T), " Hz")
 println("mean inhibitory firing rate: ", mean(1000 * ns[(Ne + 1):Ncells] / T), " Hz")
@@ -314,8 +314,8 @@ end
 ########
 #######
 ######Longer Stim for Statistics
-T=10100
-times, ns, Ne, Ncells, T,external_spike_times = sim(1000,T)
+T=30100
+times, ns, Ne, Ncells, T,lambda_t_record,lambda_t_2_record = sim(1000,T)
 println("mean excitatory firing rate: ", mean(1000 * ns[1:Ne] / T), " Hz")
 println("mean inhibitory firing rate: ", mean(1000 * ns[(Ne + 1):Ncells] / T), " Hz")
 
@@ -393,7 +393,7 @@ for ci = 1:Int(Ne/2)
     end
 end
 
-R_E1_t *= 1000 / Ne  # Convert to firing rate
+R_E1_t *= 1000 / 500  # Convert to firing rate
 
 
 
@@ -411,7 +411,7 @@ for ci = Int(Ne/2):Ne
     end
 end
 
-R_E2_t *= 1000 / Ne  # Convert to firing rate
+R_E2_t *= 1000 / 500  # Convert to firing rate
 
 
 M_E1 = mean(R_E1_t[start_index:end_index])
@@ -424,7 +424,20 @@ println("M^E: $M_E Hz, CV^E: $CV_E")
 println("M^E1: $M_E1 Hz, CV^E1: $CV_E1")
 println("M^E2: $M_E2 Hz, CV^E2: $CV_E2")
 
+CV_lambda_t = std(lambda_t_record) / mean(lambda_t_record)
+CV_lambda_t_2 = std(lambda_t_2_record) / mean(lambda_t_2_record)
 
+println("CV for lambda_t: $CV_lambda_t")
+println("CV for lambda_t_2: $CV_lambda_t_2")
+
+# Covariance between E1 and E2 firing rates
+cov_E1_E2 = cov(R_E1_t[start_index:end_index], R_E2_t[start_index:end_index])
+
+# Correlation coefficient between E1 and E2 firing rates, which is a normalized measure of covariability
+corr_E1_E2 = cov(R_E1_t[start_index:end_index], R_E2_t[start_index:end_index])
+
+println("Covariance between E1 and E2: $cov_E1_E2")
+println("Correlation coefficient between E1 and E2: $corr_E1_E2")
 
 
 
@@ -434,7 +447,7 @@ function simulate_lambda(T, dt, lambda_h, tau_lambda, sigma_lambda)
     lambda = lambda_h  # Initial condition
     
     for ti = 1:Nsteps
-        dW = randn() * sqrt(dt)
+        dW = randn() 
         # Update lambda using the Euler-Maruyama method for the SDE
         lambda += (dt / tau_lambda) * (lambda_h - lambda) + sigma_lambda * sqrt(dt / tau_lambda) * dW
         lambda_t[ti] = lambda
@@ -453,16 +466,20 @@ end
 # Parameters
 T = 10000.0  # Total simulation time in ms
 dt = 0.1    # Time step in ms
-lambda_h = 10.0  # Base firing rate
-tau_lambda = 25.0  # Time constant
-sigma_lambda = 3.0  # Noise intensity
+lambda_h = 2.0  # Base firing rate
+tau_lambda = 250.0  # Time constant
+sigma_lambda = 3.0 * lambda_h /sqrt(200) # Noise intensity
 
 # Simulate lambda(t)
 lambda_t = simulate_lambda(T, dt, lambda_h, tau_lambda, sigma_lambda)
-
+lambda_t_2=simulate_lambda(T, dt, lambda_h, tau_lambda, sigma_lambda)
+println("CV for X1 and X2 ", cov(lambda_t,lambda_t_2))
 # Compute CV_X
 CV_X, mean_lambda, std_lambda = compute_CV_X(lambda_t)
 
+println("CV_X: $CV_X, Mean: $mean_lambda, Standard Deviation: $std_lambda")
+
+CV_X, mean_lambda, std_lambda = compute_CV_X(lambda_t_2)
 println("CV_X: $CV_X, Mean: $mean_lambda, Standard Deviation: $std_lambda")
 
 
@@ -475,7 +492,7 @@ function simulate_lambda(T, dt, lambda_h, tau_lambda, sigma_lambda)
     lambda = lambda_h  # Initial condition
     
     for ti = 1:Nsteps
-        dW = randn() * sqrt(dt)
+        dW = randn() 
         # Update lambda using the Euler-Maruyama method for the SDE
         lambda += (dt / tau_lambda) * (lambda_h - lambda) + sigma_lambda * sqrt(dt / tau_lambda) * dW
         lambda_t[ti] = lambda

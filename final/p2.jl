@@ -57,7 +57,8 @@ function sim(N,T)
 	# Parameters for the λ(t) dynamics
     lambda_h = K / 100  # Base firing rate as before
     tau_lambda = 25 * taue  # Given τ_λ
-    sigma_lambda = 3 * lambda_h / K  # Given σ_λ
+
+    sigma_lambda = 3 * lambda_h / sqrt(K)  # Given σ_λ
 
     # Initial value of λ(t) for each neuron
     lambda_t = lambda_h
@@ -107,13 +108,10 @@ function sim(N,T)
 	Nsteps = round(Int,T/dt)
 
 	# Initialize arrays to track external spike times for each neuron
-	external_spike_times = Vector{Float64}[]
-	for i = 1:Ncells
-			push!(external_spike_times, [])
-	end
+
 		
 	println("starting simulation")
-
+    lambda_ts=zeros(Nsteps)
 	#begin main simulation loop
 	for ti = 1:Nsteps
 		if mod(ti,Nsteps/100) == 1  #print percent complete
@@ -125,6 +123,8 @@ function sim(N,T)
 		dW = randn()  # N(0,1) for white noise
 		lambda_t += (dt / tau_lambda) * (lambda_h - lambda_t) + sigma_lambda * sqrt(dt / tau_lambda) * dW
 		
+		lambda_ts[ti]=lambda_t
+
 		for ci = 1:Ncells
 
 			# Generate external spike based on updated λ(t)
@@ -133,7 +133,7 @@ function sim(N,T)
 			external_input = 0
 
 			if external_spike
-				push!(external_spike_times[ci], t) # Record time of external spike
+
 				if ci < Ne
 					external_input = jeX
 				else
@@ -150,7 +150,7 @@ function sim(N,T)
             recurrent_input= forwardInputsEPrev[ci]+forwardInputsIPrev[ci]
 
 			if t > (lastSpike[ci] + refrac)  #not in refractory period
-				v[ci] += dt*((1/tau[ci])*(-v[ci]) ) + external_input+recurrent_input
+				v[ci] += dt*((1/tau[ci])*(-v[ci]) )+recurrent_input+external_input
 
 				if v[ci] > thresh[ci]  #spike occurred
 					v[ci] = vre
@@ -178,7 +178,7 @@ function sim(N,T)
 
 	times = times[:,1:maximum(ns)]
 
-	return times,ns,Ne,Ncells,T,external_spike_times
+	return times,ns,Ne,Ncells,T,lambda_ts
 end
 
 
@@ -189,7 +189,7 @@ end
 doplot = true
 
 T = 1100
-times, ns, Ne, Ncells, T,external_spike_times = sim(1000,T)
+times, ns, Ne, Ncells, T,lambda_ts = sim(1000,T)
 
 println("mean excitatory firing rate: ", mean(1000 * ns[1:Ne] / T), " Hz")
 println("mean inhibitory firing rate: ", mean(1000 * ns[(Ne + 1):Ncells] / T), " Hz")
@@ -237,7 +237,7 @@ T_end = T  # Total simulation time
 time_bins = 0:dt:T
 R_E_t = zeros(length(time_bins)-1)
 # Precompute the Gaussian kernel over a range of time differences
-max_time_diff = 3 * σ_r  # Typically, 3σ covers most of the relevant range
+max_time_diff = 10 * σ_r  # Typically, 3σ covers most of the relevant range
 time_diffs = -max_time_diff:dt:max_time_diff
 gaussian_kernel_values = exp.(-time_diffs.^2 / (2 * σ_r^2)) / (σ_r * sqrt(2π))
 
@@ -289,7 +289,15 @@ if doplot
     plot!(margin=5mm)  # Set margins
 
     savefig("p2b.png")
+
+	# Plot lambda(t) over time
+    plot(time_bins[start_index:end_index], lambda_ts[start_index:end_index], label="λ(t) over time", xlabel="Time (ms)", ylabel="λ(t)", title="Evolution of λ(t)",left_margin=10mm)
+    savefig("p2c.png")  # Save the plot to a file
+
 end
+
+
+
 
 
 
@@ -297,7 +305,7 @@ end
 #######
 ######Longer Stim for Statistics
 T=10100
-times, ns, Ne, Ncells, T,external_spike_times = sim(1000,T)
+times, ns, Ne, Ncells, T,lambda_ts = sim(1000,T)
 println("mean excitatory firing rate: ", mean(1000 * ns[1:Ne] / T), " Hz")
 println("mean inhibitory firing rate: ", mean(1000 * ns[(Ne + 1):Ncells] / T), " Hz")
 
@@ -310,7 +318,7 @@ T_end = T  # Total simulation time
 time_bins = 0:dt:T
 R_E_t = zeros(length(time_bins)-1)
 # Precompute the Gaussian kernel over a range of time differences
-max_time_diff = 3 * σ_r  # Typically, 3σ covers most of the relevant range
+max_time_diff = 10 * σ_r  # Typically, 3σ covers most of the relevant range
 time_diffs = -max_time_diff:dt:max_time_diff
 gaussian_kernel_values = exp.(-time_diffs.^2 / (2 * σ_r^2)) / (σ_r * sqrt(2π))
 
@@ -347,7 +355,10 @@ CV_E = std(R_E_t[start_index:end_index]) / M_E
 
 println("M^E: $M_E Hz, CV^E: $CV_E")
 
-
+CV_lm=std(lambda_ts)/mean(lambda_ts)
+println("CV lambda: $CV_lm") 
+println("Size of Lambda_ts: $(size(lambda_ts))")
+println("Size of R_E_t: $(size(R_E_t))")
 
 
 function simulate_lambda(T, dt, lambda_h, tau_lambda, sigma_lambda)
@@ -356,7 +367,7 @@ function simulate_lambda(T, dt, lambda_h, tau_lambda, sigma_lambda)
     lambda = lambda_h  # Initial condition
     
     for ti = 1:Nsteps
-        dW = randn() * sqrt(dt)
+        dW = randn() 
         # Update lambda using the Euler-Maruyama method for the SDE
         lambda += (dt / tau_lambda) * (lambda_h - lambda) + sigma_lambda * sqrt(dt / tau_lambda) * dW
         lambda_t[ti] = lambda
@@ -375,9 +386,9 @@ end
 # Parameters
 T = 10000.0  # Total simulation time in ms
 dt = 0.1    # Time step in ms
-lambda_h = 10.0  # Base firing rate
-tau_lambda = 25.0  # Time constant
-sigma_lambda = 3.0  # Noise intensity
+lambda_h = 2.0  # Base firing rate
+tau_lambda = 250.0  # Time constant
+sigma_lambda = 3.0 * lambda_h /sqrt(200) # Noise intensity
 
 # Simulate lambda(t)
 lambda_t = simulate_lambda(T, dt, lambda_h, tau_lambda, sigma_lambda)
@@ -386,31 +397,5 @@ lambda_t = simulate_lambda(T, dt, lambda_h, tau_lambda, sigma_lambda)
 CV_X, mean_lambda, std_lambda = compute_CV_X(lambda_t)
 
 println("CV_X: $CV_X, Mean: $mean_lambda, Standard Deviation: $std_lambda")
-
-
-
-# Extend the simulate_lambda function to return time steps for plotting
-function simulate_lambda(T, dt, lambda_h, tau_lambda, sigma_lambda)
-    Nsteps = round(Int, T/dt)
-    time_steps = collect(0:dt:(T-dt))  # Time steps for plotting
-    lambda_t = zeros(Nsteps)
-    lambda = lambda_h  # Initial condition
-    
-    for ti = 1:Nsteps
-        dW = randn() * sqrt(dt)
-        # Update lambda using the Euler-Maruyama method for the SDE
-        lambda += (dt / tau_lambda) * (lambda_h - lambda) + sigma_lambda * sqrt(dt / tau_lambda) * dW
-        lambda_t[ti] = lambda
-    end
-    
-    return time_steps, lambda_t
-end
-
-# Use the updated simulate_lambda function
-time_steps, lambda_t = simulate_lambda(1000, dt, lambda_h, tau_lambda, sigma_lambda)
-
-# Plot lambda(t) over time
-plot(time_steps, lambda_t, label="λ(t) over time", xlabel="Time (ms)", ylabel="λ(t)", title="Evolution of λ(t)")
-savefig("p2c.png")  # Save the plot to a file
 
 
